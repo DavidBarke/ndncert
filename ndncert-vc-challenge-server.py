@@ -1,5 +1,6 @@
 import asyncio
 import argparse
+import json
 
 from pprint import pprint
 from aiohttp import ClientSession
@@ -16,17 +17,8 @@ def format_requested_attribute(attr, index, cred_def_id):
         }
     )
 
-
-async def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--connection_id", required=True)
-    parser.add_argument("--cred_def_id", required=True)
-    parser.add_argument("--requested_attributes", nargs="*", required=True)
-    parser.add_argument("--endpoint", required=True)
-    args = parser.parse_args()
-    
-    cred_def_id = args.cred_def_id
-    requested_attributes = [format_requested_attribute(x, i, cred_def_id) for i, x in enumerate(args.requested_attributes)]
+def presentation_proof_send_request_body(connection_id, cred_def_id, requested_attributes):
+    requested_attributes = [format_requested_attribute(x, i, cred_def_id) for i, x in enumerate(requested_attributes)]
 
     presentation_request = {
         "indy": {
@@ -37,20 +29,34 @@ async def main():
         }
     }
 
-    presentation_proof_send_request_body = {
+    return {
         "auto_verify": True,
         "comment": "string",
-        "connection_id": args.connection_id,
+        "connection_id": connection_id,
         "presentation_request": presentation_request,
         "trace": False
     }
+    
 
-    pprint(presentation_proof_send_request_body)
+async def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--connection_did", required=True)
+    parser.add_argument("--cred_def_id", required=True)
+    parser.add_argument("--requested_attributes", nargs="*", required=True)
+    parser.add_argument("--endpoint", required=True)
+    args = parser.parse_args()
     
     async with ClientSession(args.endpoint) as session:
-        async with session.request("post", "/present-proof-2.0/send-request", json=presentation_proof_send_request_body) as resp:
-            print(resp.status)
-            print(await resp.text())
+        async with session.request("get", "/connections", params={"their_did": args.connection_did}) as resp:
+            text = await resp.text()
+            text_json = json.loads(text)
+            connection_id = text_json["results"][0]["connection_id"]
+        
+        ppsr_body = presentation_proof_send_request_body(connection_id, args.cred_def_id, args.requested_attributes)
+        async with session.request("post", "/present-proof-2.0/send-request", json=ppsr_body) as resp:
+            text = await resp.text()
+            text_json = json.loads(text)
+            pres_ex_id = text_json["pres_ex_id"]
             
     
 asyncio.run(main())
