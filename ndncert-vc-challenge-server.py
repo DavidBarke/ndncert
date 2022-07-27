@@ -1,5 +1,5 @@
-import asyncio
 import argparse
+import asyncio
 import json
 
 from pprint import pprint
@@ -56,7 +56,8 @@ async def main():
         async with session.request("post", "/present-proof-2.0/send-request", json=ppsr_body) as resp:
             text = await resp.text()
             text_json = json.loads(text)
-            pres_ex_id = text_json["pres_ex_id"]
+            thread_id = text_json["thread_id"]
+            print(thread_id)
             
     
 asyncio.run(main())
