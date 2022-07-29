@@ -46,7 +46,9 @@ namespace ndncert {
 class ChallengeVC : public ChallengeModule
 {
 public:
-  ChallengeVC(const std::string& configPath);
+  ChallengeVC(const std::string& configPath = "", 
+              const std::string& requestProofScriptPath = "ndncert-vc-challenge-server", 
+              const std::string& presentProofScriptPath = "ndncert-vc-challenge-client");
 
   // For CA
   std::tuple<ErrorCode, std::string>
@@ -61,17 +63,28 @@ public:
                          const std::multimap<std::string, std::string>& params) override;
 
   // challenge status
-  static const std::string NEED_CODE;
-  static const std::string WRONG_CODE;
+  
   // parameters
-  static const std::string PARAMETER_KEY_CODE;
+  static const std::string PARAMETER_KEY_DID;
 
 NDNCERT_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   void
+  removeWhitespace(std::string& str);
+
+  void 
   parseConfigFile();
+
+  void
+  sendProofRequest(const std::string& connectionDid);
 
 NDNCERT_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   std::string m_configFile;
+  std::string m_presentationRequest;
+  std::string m_ariesAdminEndpoint;
+
+private:
+  std::string m_requestProofScript;
+  std::string m_presentProofScript;
 };
 
 } // namespace ndncert

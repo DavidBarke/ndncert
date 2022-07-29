@@ -97,6 +97,13 @@ def build(bld):
         target='bin/ndncert-send-email-challenge',
         install_path='${BINDIR}',
         chmod=Utils.O755)
+    
+    bld(features='subst',
+        name='ndncert-vc-challenge-server',
+        source='ndncert-vc-challenge-server.py',
+        target='bin/ndncert-vc-challenge-server',
+        install_path='${BINDIR}',
+        chmod=Utils.O755)
 
     if Utils.unversioned_sys_platform() == 'linux':
         bld(features='subst',

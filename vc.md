@@ -13,3 +13,6 @@
 ## Challenge Specification
 Herausforderung:
 - Austausch von VC: könnte über DIDComm oder NDN gesendet werden
+
+# Example Presentation Request
+'{"indy": {"name": "NDNCERT Proof", "version": "1.0", "requested_predicates": {}, "requested_attributes": {"attr1": {"name": "score", "restrictions": [{"cred_def_id": "4QxzWk3ajdnEA37NdNU5Kt:3:CL:144152:default"}]}}}}'

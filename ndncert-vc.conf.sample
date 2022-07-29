@@ -1,0 +1,18 @@
+{
+    "presentation-request": {
+        "indy": {
+            "name": "NDNCERT Proof", 
+            "version": "1.0", 
+            "requested_predicates": {}, 
+            "requested_attributes": {
+                "attr1": {
+                    "name": "score", 
+                    "restrictions": [
+                        {"cred_def_id": "4QxzWk3ajdnEA37NdNU5Kt:3:CL:144152:default"}
+                    ]
+                }
+            }
+        }
+    },
+    "aries-admin-endpoint": "http://localhost:8121"
+}
