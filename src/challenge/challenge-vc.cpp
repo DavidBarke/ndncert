@@ -24,6 +24,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <iostream>
+#include <regex>
 
 namespace ndncert {
 
@@ -31,11 +32,13 @@ NDN_LOG_INIT(ndncert.challenge.vc);
 NDNCERT_REGISTER_CHALLENGE(ChallengeVC, "vc");
 
 const std::string ChallengeVC::PARAMETER_KEY_DID = "did";
+const std::string ChallengeVC::PARAMETER_KEY_THREAD_ID = "thread-id";
+const std::string ChallengeVC::NEED_THREAD_ID = "need-thread-id";
 
-ChallengeVC::ChallengeVC(const std::string& configPath, const std::string& requestProofScriptPath, const std::string& presentProofScriptPath)
+ChallengeVC::ChallengeVC(const std::string& configPath, const std::string& sendPresentationScriptPath, const std::string& checkPresentationScriptPath)
   : ChallengeModule("vc", 1, time::seconds(60)),
-  m_requestProofScript(requestProofScriptPath),
-  m_presentProofScript(presentProofScriptPath)
+  m_sendPresentationScriptPath(sendPresentationScriptPath),
+  m_checkPresentationScriptPath(checkPresentationScriptPath)
 {
   if (configPath.empty()) {
     m_configFile = std::string(NDNCERT_SYSCONFDIR) + "/ndncert/challenge-vc.conf";
@@ -43,12 +46,6 @@ ChallengeVC::ChallengeVC(const std::string& configPath, const std::string& reque
   else {
     m_configFile = configPath;
   }
-}
-
-void 
-ChallengeVC::removeWhitespace(std::string& str) {
-  str.erase(std::remove(str.begin(), str.end(), ' '), str.end());
-  str.erase(std::remove(str.begin(), str.end(), '\n'), str.end());
 }
 
 void
@@ -66,16 +63,6 @@ ChallengeVC::parseConfigFile()
   if (config.begin() == config.end()) {
     NDN_THROW(std::runtime_error("Error processing configuration file: " + m_configFile + " no data"));
   }
-
-  JsonSection proof_request = config.get_child("presentation-request");
-  std::stringstream ss;
-  boost::property_tree::json_parser::write_json(ss, proof_request, false);
-  std::string presentationRequest = ss.str();
-  //removeWhitespace(presentationRequest);
-  m_presentationRequest = presentationRequest;
-  m_ariesAdminEndpoint = config.get_child("aries-admin-endpoint").data();
-  std::cout << m_presentationRequest << std::endl;
-  std::cout << m_ariesAdminEndpoint << std::endl;
 }
 
 // For CA
@@ -89,41 +76,28 @@ ChallengeVC::handleChallengeRequest(const Block& params, ca::RequestState& reque
   if (request.status == Status::BEFORE_CHALLENGE) {
     // for the first time, init the challenge
     NDN_LOG_TRACE("Challenge Interest arrives. Init the challenge");
-    std::cout << "Init" << std::endl;
     std::string connection_did = readString(params.get(tlv::ParameterValue)); 
-    std::cout << "connection_did: " << connection_did << std::endl;
-    sendProofRequest(connection_did);
-    return returnWithSuccess(request);
+    std::string threadId = sendPresentationRequest(connection_did);
+    JsonSection secretJson;
+    secretJson.add(PARAMETER_KEY_THREAD_ID, threadId);
+    NDN_LOG_TRACE("Secret for request " << ndn::toHex(request.requestId) << " : " << threadId);
+    return returnWithNewChallengeStatus(request, NEED_THREAD_ID, std::move(secretJson), m_maxAttemptTimes,
+                                        m_secretLifetime);
   }
-  // if (request.challengeState) {
-  //   if (request.challengeState->challengeStatus == NEED_CODE ||
-  //       request.challengeState->challengeStatus == WRONG_CODE) {
-  //     NDN_LOG_TRACE("Challenge Interest arrives. Challenge Status: " << request.challengeState->challengeStatus);
-  //     // the incoming interest should bring the pin code
-  //     std::string givenCode = readString(params.get(tlv::ParameterValue));
-  //     auto secret = request.challengeState->secrets;
-  //     if (currentTime - request.challengeState->timestamp >= m_secretLifetime) {
-  //       return returnWithError(request, ErrorCode::OUT_OF_TIME, "Secret expired.");
-  //     }
-  //     if (givenCode == secret.get<std::string>(PARAMETER_KEY_CODE)) {
-  //       NDN_LOG_TRACE("Correct PIN code. Challenge succeeded.");
-  //       return returnWithSuccess(request);
-  //     }
-  //     // check rest attempt times
-  //     if (request.challengeState->remainingTries > 1) {
-  //       auto remainTime = m_secretLifetime - (currentTime - request.challengeState->timestamp);
-  //       NDN_LOG_TRACE("Wrong PIN code provided. Remaining Tries - 1.");
-  //       return returnWithNewChallengeStatus(request, WRONG_CODE, std::move(secret),
-  //                                           request.challengeState->remainingTries - 1,
-  //                                           time::duration_cast<time::seconds>(remainTime));
-  //     }
-  //     else {
-  //       // run out times
-  //       NDN_LOG_TRACE("Wrong PIN code provided. Ran out tires. Challenge failed.");
-  //       return returnWithError(request, ErrorCode::OUT_OF_TRIES, "Ran out tires.");
-  //     }
-  //   }
-  // }
+  if (request.challengeState && request.challengeState->challengeStatus == NEED_THREAD_ID) {
+    NDN_LOG_TRACE("Challenge Interest (thread_id) arrives. Check that verifiable credential has been presented");
+    std::string givenThreadId = readString(params.get(tlv::ParameterValue));
+    auto secret = request.challengeState->secrets;
+    if (givenThreadId == secret.get<std::string>(PARAMETER_KEY_THREAD_ID)) {
+      NDN_LOG_TRACE("Correct Thread ID. Check that presentation request has been fulfilled.");
+      bool fulfilled = checkPresentationRequest(givenThreadId);
+      if (fulfilled) {
+        return returnWithSuccess(request);
+      } else {
+        return returnWithError(request, ErrorCode::INVALID_PARAMETER, "Cannot verify that presentation request has been fulfilled.");
+      }
+    }
+  }
   return returnWithError(request, ErrorCode::INVALID_PARAMETER, "Unexpected status or challenge status");
 }
 
@@ -135,11 +109,8 @@ ChallengeVC::getRequestedParameterList(Status status, const std::string& challen
   if (status == Status::BEFORE_CHALLENGE && challengeStatus.empty()) {
     result.emplace(PARAMETER_KEY_DID, "Please input your DID of your connection with the CA.");
   }
-  else if (status == Status::CHALLENGE) {
-    result.emplace(PARAMETER_KEY_DID, "Please input your DID of your connection with the CA.");
-  }
-  else if (status == Status::CHALLENGE) {
-    result.emplace(PARAMETER_KEY_DID, "CA has no connection with you with the supplied DID, please try again.");
+  else if (status == Status::CHALLENGE && challengeStatus == NEED_THREAD_ID) {
+    result.emplace(PARAMETER_KEY_THREAD_ID, "Please input the thread ID of the presentation request you fulfilled with the CA.");
   }
   else {
     NDN_THROW(std::runtime_error("Unexpected status or challenge status."));
@@ -160,13 +131,13 @@ ChallengeVC::genChallengeRequestTLV(Status status, const std::string& challengeS
     request.push_back(ndn::makeStringBlock(tlv::ParameterKey, PARAMETER_KEY_DID));
     request.push_back(ndn::makeStringBlock(tlv::ParameterValue, params.find(PARAMETER_KEY_DID)->second));
   }
-  else if (status == Status::CHALLENGE) {
-    if (params.size() != 1 || params.find(PARAMETER_KEY_DID) == params.end()) {
+  else if (status == Status::CHALLENGE && challengeStatus == NEED_THREAD_ID) {
+    if (params.size() != 1 || params.find(PARAMETER_KEY_THREAD_ID) == params.end()) {
       NDN_THROW(std::runtime_error("Wrong parameter provided."));
     }
     request.push_back(ndn::makeStringBlock(tlv::SelectedChallenge, CHALLENGE_TYPE));
-    request.push_back(ndn::makeStringBlock(tlv::ParameterKey, PARAMETER_KEY_DID));
-    request.push_back(ndn::makeStringBlock(tlv::ParameterValue, params.find(PARAMETER_KEY_DID)->second));
+    request.push_back(ndn::makeStringBlock(tlv::ParameterKey, PARAMETER_KEY_THREAD_ID));
+    request.push_back(ndn::makeStringBlock(tlv::ParameterValue, params.find(PARAMETER_KEY_THREAD_ID)->second));
   } 
   else {
     NDN_THROW(std::runtime_error("Unexpected status or challenge status."));
@@ -175,23 +146,68 @@ ChallengeVC::genChallengeRequestTLV(Status status, const std::string& challengeS
   return request;
 }
 
-void ChallengeVC::sendProofRequest(const std::string& connectionDid) {
-  std::string command = m_requestProofScript;
+std::string ChallengeVC::sendPresentationRequest(const std::string& connectionDid) {
+  std::string threadId;
+  std::string command = m_sendPresentationScriptPath;
   command += " " + std::string("--connection_did") + " \"" + connectionDid + "\" "
-                 + "--config_file" + " \"" + m_configFile + "\"";
+                 + "--config_file" + " \"" + m_configFile + "\" "
+                 + "--log" + " \"" + "DEBUG" + "\"";
   boost::process::ipstream stream;
   boost::process::child child(command, boost::process::std_out > stream);
   std::string line;
   while(child.running() && getline(stream, line)) {
-    std::cout << "From Python: " << line << std::endl;
+    NDN_LOG_TRACE("<Python>: " + line);
+    // Receive thread_id message
+    if (line.rfind("<msg>:thread_id", 0) == 0) {
+      std::regex r = std::regex("^<msg>:thread_id:([\\w\\-]+)$");
+      std::smatch m;
+      std::regex_search(line, m, r);
+      threadId = std::string(m[1]);
+    }
   }
   child.wait();
   if (child.exit_code() != 0) {
-    NDN_LOG_TRACE("RequestProofScript " + m_requestProofScript + " fails.");
+    NDN_LOG_TRACE("SendPresentationScript " + m_sendPresentationScriptPath + " fails.");
   }
   else {
-    NDN_LOG_TRACE("RequestProofScript " + m_requestProofScript + " was executed succesfully with return value 0.");
+    NDN_LOG_TRACE("SendPresentationScript " + m_sendPresentationScriptPath + " was executed succesfully with return value 0.");
   }
+  return threadId;
+}
+
+bool ChallengeVC::checkPresentationRequest(const std::string& threadId) {
+  bool verified = false;
+  std::string command = m_checkPresentationScriptPath;
+  command += " " + std::string("--thread_id") + " \"" + threadId + "\" "
+                 + "--config_file" + " \"" + m_configFile + "\" "
+                 + "--log" + " \"" + "DEBUG" + "\"";
+  boost::process::ipstream stream;
+  boost::process::child child(command, boost::process::std_out > stream);
+  std::string line;
+  while(child.running() && getline(stream, line)) {
+    NDN_LOG_TRACE("<Python>: " + line);
+    // Receive success message
+    if (line.rfind("<msg>:verified", 0) == 0) {
+      std::regex r = std::regex("^<msg>:verified:([\\w]+)$");
+      std::smatch m;
+      std::regex_search(line, m, r);
+      verified = m[1] == "true";
+      if (verified) {
+        NDN_LOG_TRACE("Presentation request for thread id " + threadId + " verified.");
+      }
+      else {
+        NDN_LOG_TRACE("Presentation request for thread id " + threadId + " could not be verified.");
+      } 
+    }
+  }
+  child.wait();
+  if (child.exit_code() != 0) {
+    NDN_LOG_TRACE("CheckPresentationScript " + m_checkPresentationScriptPath + " fails.");
+  }
+  else {
+    NDN_LOG_TRACE("CheckPresentationScript " + m_checkPresentationScriptPath + " was executed succesfully with return value 0.");
+  }
+  return verified;
 }
 
 } // namespace ndncert

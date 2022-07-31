@@ -47,8 +47,8 @@ class ChallengeVC : public ChallengeModule
 {
 public:
   ChallengeVC(const std::string& configPath = "", 
-              const std::string& requestProofScriptPath = "ndncert-vc-challenge-server", 
-              const std::string& presentProofScriptPath = "ndncert-vc-challenge-client");
+              const std::string& sendPresentationScriptPath = "ndncert-vc-challenge-send-presentation",
+              const std::string& checkPresentationScriptPath = "ndncert-vc-challenge-check-presentation");
 
   // For CA
   std::tuple<ErrorCode, std::string>
@@ -63,9 +63,11 @@ public:
                          const std::multimap<std::string, std::string>& params) override;
 
   // challenge status
+  static const std::string NEED_THREAD_ID;
   
   // parameters
   static const std::string PARAMETER_KEY_DID;
+  static const std::string PARAMETER_KEY_THREAD_ID;
 
 NDNCERT_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   void
@@ -74,8 +76,11 @@ NDNCERT_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   void 
   parseConfigFile();
 
-  void
-  sendProofRequest(const std::string& connectionDid);
+  std::string
+  sendPresentationRequest(const std::string& connectionDid);
+
+  bool
+  checkPresentationRequest(const std::string& threadId);
 
 NDNCERT_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   std::string m_configFile;
@@ -83,8 +88,8 @@ NDNCERT_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   std::string m_ariesAdminEndpoint;
 
 private:
-  std::string m_requestProofScript;
-  std::string m_presentProofScript;
+  std::string m_sendPresentationScriptPath;
+  std::string m_checkPresentationScriptPath;
 };
 
 } // namespace ndncert

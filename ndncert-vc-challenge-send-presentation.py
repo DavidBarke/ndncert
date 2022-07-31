@@ -2,9 +2,13 @@
 import argparse
 import asyncio
 import json
+import logging
+import sys
 
-from pprint import pprint
 from aiohttp import ClientSession, ClientResponse
+
+def send_msg(context, value):
+    print(f"<msg>:{context}:{value}", flush=True)
 
 def format_requested_attribute(attr, index, cred_def_id):
     attr_label = "attr" + str(index)
@@ -54,24 +58,28 @@ async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--connection_did", required=True)
     parser.add_argument("--config_file", required=True)
+    parser.add_argument("--log", default="WARNING", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
     args = parser.parse_args()
+    logging.basicConfig(level=getattr(logging, args.log), encoding="UTF-8", stream=sys.stdout)
+    
     with open(args.config_file) as f:
         config = json.load(f)
-        print(config)
+        logging.debug(f"config: {config}")
     endpoint = config["aries-admin-endpoint"]
-    print(endpoint)
+    logging.info(f"endpoint: {endpoint}")
     presentation_request = config["presentation-request"]
-    print(presentation_request)
+    logging.info(f"presentation_request: {presentation_request}")
     
     async with ClientSession() as session:
         res = await request(session, "get", endpoint + "/connections", params={"their_did": args.connection_did})
         connection_id = res["results"][0]["connection_id"]
-        print(f"connection_id: {connection_id}")
+        logging.info(f"connection_id: {connection_id}")
         
         ppsr_body = presentation_proof_send_request_body(connection_id, presentation_request)
         res = await request(session, "post", endpoint + "/present-proof-2.0/send-request", data=ppsr_body)
         thread_id = res["thread_id"]
-        print(f"thread_id: {thread_id}")
+        logging.info(f"thread_id: {thread_id}")
+        send_msg("thread_id", thread_id)
             
     
 asyncio.run(main())
