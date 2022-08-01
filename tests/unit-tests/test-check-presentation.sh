@@ -1,0 +1,10 @@
+#!/bin/sh
+
+THREAD_ID=$2
+CONFIG_FILE=$4
+LOG=$6
+
+MESSAGE=$THREAD_ID" "$CONFIG_FILE" "$LOG
+
+echo $MESSAGE > tmp.txt
+echo $MESSAGE
