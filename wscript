@@ -106,9 +106,9 @@ def build(bld):
         chmod=Utils.O755)
     
     bld(features='subst',
-        name='ndncert-vc-challenge-check-presentation',
-        source='ndncert-vc-challenge-check-presentation.py',
-        target='bin/ndncert-vc-challenge-check-presentation',
+        name='ndncert-vc-challenge-verify-presentation',
+        source='ndncert-vc-challenge-verify-presentation.py',
+        target='bin/ndncert-vc-challenge-verify-presentation',
         install_path='${BINDIR}',
         chmod=Utils.O755)
 
