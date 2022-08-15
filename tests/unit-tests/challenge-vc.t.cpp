@@ -59,9 +59,9 @@ BOOST_AUTO_TEST_CASE(OnChallengeRequestWithDID)
     challenge.handleChallengeRequest(paramTLV, request);
 
     BOOST_CHECK(request.status == Status::CHALLENGE);
-    BOOST_CHECK_EQUAL(request.challengeState->challengeStatus, ChallengeVC::NEED_THREAD_ID);
-    // thread_id is only different from "" if python script sends thread_id of presentation exchange
-    BOOST_CHECK(request.challengeState->secrets.get<std::string>(ChallengeVC::PARAMETER_KEY_THREAD_ID) == "");
+    BOOST_CHECK_EQUAL(request.challengeState->challengeStatus, ChallengeVC::NEED_PRESENTATION_ID);
+    // presentation_id is only different from "" if python script sends presentation_id of presentation exchange
+    BOOST_CHECK(request.challengeState->secrets.get<std::string>(ChallengeVC::PARAMETER_KEY_PRESENTATION_ID) == "");
     BOOST_CHECK(request.challengeState->remainingTime.count() != 0);
     BOOST_CHECK(request.challengeState->remainingTries != 0);
     BOOST_CHECK_EQUAL(request.challengeType, "vc");
@@ -89,13 +89,13 @@ BOOST_AUTO_TEST_CASE(OnChallengeRequestWithDID)
     std::remove("tmp.txt");
 }
 
-BOOST_AUTO_TEST_CASE(OnChallengeRequestWithThreadId) 
+BOOST_AUTO_TEST_CASE(OnChallengeRequestWithPresentationId) 
 {
     auto identity = m_keyChain.createIdentity(Name("/ndn/site1"));
     auto key = identity.getDefaultKey();
     auto cert = key.getDefaultCertificate();
     JsonSection secret;
-    secret.put(ChallengeVC::PARAMETER_KEY_THREAD_ID, "thread-id");
+    secret.put(ChallengeVC::PARAMETER_KEY_PRESENTATION_ID, "presentation-id");
     RequestId requestId = {{101}};
     ca::RequestState request;
     request.caPrefix = Name("/ndn/site1");
@@ -105,12 +105,12 @@ BOOST_AUTO_TEST_CASE(OnChallengeRequestWithThreadId)
     request.cert = cert;
     request.challengeType = "vc";
     request.challengeState = ca::ChallengeState(
-        ChallengeVC::NEED_THREAD_ID, time::system_clock::now(), 1, time::seconds(3600), std::move(secret)
+        ChallengeVC::NEED_PRESENTATION_ID, time::system_clock::now(), 1, time::seconds(3600), std::move(secret)
     );
 
     Block paramTLV = ndn::makeEmptyBlock(tlv::EncryptedPayload);
-    paramTLV.push_back(ndn::makeStringBlock(tlv::ParameterKey, ChallengeVC::PARAMETER_KEY_THREAD_ID));
-    paramTLV.push_back(ndn::makeStringBlock(tlv::ParameterValue, "thread-id"));
+    paramTLV.push_back(ndn::makeStringBlock(tlv::ParameterKey, ChallengeVC::PARAMETER_KEY_PRESENTATION_ID));
+    paramTLV.push_back(ndn::makeStringBlock(tlv::ParameterValue, "presentation-id"));
 
     ChallengeVC challenge(
         "./tests/unit-tests/config-files/config-challenge-vc", 
@@ -132,8 +132,8 @@ BOOST_AUTO_TEST_CASE(OnChallengeRequestWithThreadId)
     }
 
     int end = line.find(delimiter);
-    std::string threadId = line.substr(0, end);
-    BOOST_CHECK_EQUAL(threadId, "thread-id");
+    std::string presentationId = line.substr(0, end);
+    BOOST_CHECK_EQUAL(presentationId, "presentation-id");
     line = line.substr(end + 1);
 
     end = line.find(delimiter);

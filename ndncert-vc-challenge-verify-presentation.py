@@ -35,7 +35,7 @@ async def request(
 
 async def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--thread_id", required=True)
+    parser.add_argument("--presentation_id", required=True)
     parser.add_argument("--config_file", required=True)
     parser.add_argument("--log", default="WARNING", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
     args = parser.parse_args()
@@ -48,7 +48,7 @@ async def main():
     logging.info(f"endpoint: {endpoint}")
     
     async with ClientSession() as session:
-        res = await request(session, "get", endpoint + "/present-proof-2.0/records", params={"thread_id": args.thread_id})
+        res = await request(session, "get", endpoint + "/present-proof-2.0/records", params={"thread_id": args.presentation_id})
         res = res["results"][0]
         pres_ex_id = res["pres_ex_id"]
         logging.info(f"pres_ex_id: {pres_ex_id}")

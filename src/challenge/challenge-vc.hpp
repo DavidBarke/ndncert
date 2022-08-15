@@ -63,11 +63,11 @@ public:
                          const std::multimap<std::string, std::string>& params) override;
 
   // challenge status
-  static const std::string NEED_THREAD_ID;
+  static const std::string NEED_PRESENTATION_ID;
   
   // parameters
   static const std::string PARAMETER_KEY_DID;
-  static const std::string PARAMETER_KEY_THREAD_ID;
+  static const std::string PARAMETER_KEY_PRESENTATION_ID;
 
 NDNCERT_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   void
@@ -80,7 +80,7 @@ NDNCERT_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   sendPresentationRequest(const std::string& connectionDid);
 
   bool
-  verifyPresentationRequest(const std::string& threadId);
+  verifyPresentationRequest(const std::string& presentationId);
 
 NDNCERT_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   std::string m_configFile;

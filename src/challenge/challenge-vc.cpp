@@ -32,8 +32,8 @@ NDN_LOG_INIT(ndncert.challenge.vc);
 NDNCERT_REGISTER_CHALLENGE(ChallengeVC, "vc");
 
 const std::string ChallengeVC::PARAMETER_KEY_DID = "did";
-const std::string ChallengeVC::PARAMETER_KEY_THREAD_ID = "thread-id";
-const std::string ChallengeVC::NEED_THREAD_ID = "need-thread-id";
+const std::string ChallengeVC::PARAMETER_KEY_PRESENTATION_ID = "presentation-id";
+const std::string ChallengeVC::NEED_PRESENTATION_ID = "need-presentation-id";
 
 ChallengeVC::ChallengeVC(const std::string& configPath, const std::string& sendPresentationScriptPath, const std::string& verifyPresentationScriptPath)
   : ChallengeModule("vc", 1, time::seconds(60)),
@@ -77,20 +77,20 @@ ChallengeVC::handleChallengeRequest(const Block& params, ca::RequestState& reque
     // for the first time, init the challenge
     NDN_LOG_TRACE("Challenge Interest arrives. Init the challenge");
     std::string connection_did = readString(params.get(tlv::ParameterValue)); 
-    std::string threadId = sendPresentationRequest(connection_did);
+    std::string presentationId = sendPresentationRequest(connection_did);
     JsonSection secretJson;
-    secretJson.add(PARAMETER_KEY_THREAD_ID, threadId);
-    NDN_LOG_TRACE("Secret for request " << ndn::toHex(request.requestId) << " : " << threadId);
-    return returnWithNewChallengeStatus(request, NEED_THREAD_ID, std::move(secretJson), m_maxAttemptTimes,
+    secretJson.add(PARAMETER_KEY_PRESENTATION_ID, presentationId);
+    NDN_LOG_TRACE("Secret for request " << ndn::toHex(request.requestId) << " : " << presentationId);
+    return returnWithNewChallengeStatus(request, NEED_PRESENTATION_ID, std::move(secretJson), m_maxAttemptTimes,
                                         m_secretLifetime);
   }
-  if (request.challengeState && request.challengeState->challengeStatus == NEED_THREAD_ID) {
-    NDN_LOG_TRACE("Challenge Interest (thread_id) arrives. Check that verifiable credential has been presented");
-    std::string givenThreadId = readString(params.get(tlv::ParameterValue));
+  if (request.challengeState && request.challengeState->challengeStatus == NEED_PRESENTATION_ID) {
+    NDN_LOG_TRACE("Challenge Interest (Presentation ID) arrives. Check that verifiable credential has been presented");
+    std::string givenPresentationId = readString(params.get(tlv::ParameterValue));
     auto secret = request.challengeState->secrets;
-    if (givenThreadId == secret.get<std::string>(PARAMETER_KEY_THREAD_ID)) {
-      NDN_LOG_TRACE("Correct Thread ID. Check that presentation request has been fulfilled.");
-      bool fulfilled = verifyPresentationRequest(givenThreadId);
+    if (givenPresentationId == secret.get<std::string>(PARAMETER_KEY_PRESENTATION_ID)) {
+      NDN_LOG_TRACE("Correct Presentation ID. Check that presentation request has been fulfilled.");
+      bool fulfilled = verifyPresentationRequest(givenPresentationId);
       if (fulfilled) {
         return returnWithSuccess(request);
       } else {
@@ -109,8 +109,8 @@ ChallengeVC::getRequestedParameterList(Status status, const std::string& challen
   if (status == Status::BEFORE_CHALLENGE && challengeStatus.empty()) {
     result.emplace(PARAMETER_KEY_DID, "Please input your DID of your connection with the CA.");
   }
-  else if (status == Status::CHALLENGE && challengeStatus == NEED_THREAD_ID) {
-    result.emplace(PARAMETER_KEY_THREAD_ID, "Please input the thread ID of the presentation request you fulfilled with the CA.");
+  else if (status == Status::CHALLENGE && challengeStatus == NEED_PRESENTATION_ID) {
+    result.emplace(PARAMETER_KEY_PRESENTATION_ID, "Please input the presentation ID of the presentation request you fulfilled with the CA.");
   }
   else {
     NDN_THROW(std::runtime_error("Unexpected status or challenge status."));
@@ -131,13 +131,13 @@ ChallengeVC::genChallengeRequestTLV(Status status, const std::string& challengeS
     request.push_back(ndn::makeStringBlock(tlv::ParameterKey, PARAMETER_KEY_DID));
     request.push_back(ndn::makeStringBlock(tlv::ParameterValue, params.find(PARAMETER_KEY_DID)->second));
   }
-  else if (status == Status::CHALLENGE && challengeStatus == NEED_THREAD_ID) {
-    if (params.size() != 1 || params.find(PARAMETER_KEY_THREAD_ID) == params.end()) {
+  else if (status == Status::CHALLENGE && challengeStatus == NEED_PRESENTATION_ID) {
+    if (params.size() != 1 || params.find(PARAMETER_KEY_PRESENTATION_ID) == params.end()) {
       NDN_THROW(std::runtime_error("Wrong parameter provided."));
     }
     request.push_back(ndn::makeStringBlock(tlv::SelectedChallenge, CHALLENGE_TYPE));
-    request.push_back(ndn::makeStringBlock(tlv::ParameterKey, PARAMETER_KEY_THREAD_ID));
-    request.push_back(ndn::makeStringBlock(tlv::ParameterValue, params.find(PARAMETER_KEY_THREAD_ID)->second));
+    request.push_back(ndn::makeStringBlock(tlv::ParameterKey, PARAMETER_KEY_PRESENTATION_ID));
+    request.push_back(ndn::makeStringBlock(tlv::ParameterValue, params.find(PARAMETER_KEY_PRESENTATION_ID)->second));
   } 
   else {
     NDN_THROW(std::runtime_error("Unexpected status or challenge status."));
@@ -147,7 +147,7 @@ ChallengeVC::genChallengeRequestTLV(Status status, const std::string& challengeS
 }
 
 std::string ChallengeVC::sendPresentationRequest(const std::string& connectionDid) {
-  std::string threadId;
+  std::string presentationId;
   std::string command = m_sendPresentationScriptPath;
   command += " " + std::string("--connection_did") + " \"" + connectionDid + "\" "
                  + "--config_file" + " \"" + m_configFile + "\" "
@@ -157,12 +157,12 @@ std::string ChallengeVC::sendPresentationRequest(const std::string& connectionDi
   std::string line;
   while(child.running() && getline(stream, line)) {
     NDN_LOG_TRACE("<Python>: " + line);
-    // Receive thread_id message
-    if (line.rfind("<msg>:thread_id", 0) == 0) {
-      std::regex r = std::regex("^<msg>:thread_id:([\\w\\-]+)$");
+    // Receive presentation_id message
+    if (line.rfind("<msg>:presentation_id", 0) == 0) {
+      std::regex r = std::regex("^<msg>:presentation_id:([\\w\\-]+)$");
       std::smatch m;
       std::regex_search(line, m, r);
-      threadId = std::string(m[1]);
+      presentationId = std::string(m[1]);
     }
   }
   child.wait();
@@ -172,13 +172,13 @@ std::string ChallengeVC::sendPresentationRequest(const std::string& connectionDi
   else {
     NDN_LOG_TRACE("SendPresentationScript " + m_sendPresentationScriptPath + " was executed succesfully with return value 0.");
   }
-  return threadId;
+  return presentationId;
 }
 
-bool ChallengeVC::verifyPresentationRequest(const std::string& threadId) {
+bool ChallengeVC::verifyPresentationRequest(const std::string& presentationId) {
   bool verified = false;
   std::string command = m_verifyPresentationScriptPath;
-  command += " " + std::string("--thread_id") + " \"" + threadId + "\" "
+  command += " " + std::string("--presentation_id") + " \"" + presentationId + "\" "
                  + "--config_file" + " \"" + m_configFile + "\" "
                  + "--log" + " \"" + "DEBUG" + "\"";
   boost::process::ipstream stream;
@@ -193,10 +193,10 @@ bool ChallengeVC::verifyPresentationRequest(const std::string& threadId) {
       std::regex_search(line, m, r);
       verified = m[1] == "true";
       if (verified) {
-        NDN_LOG_TRACE("Presentation request for thread id " + threadId + " verified.");
+        NDN_LOG_TRACE("Presentation request for presentation id " + presentationId + " verified.");
       }
       else {
-        NDN_LOG_TRACE("Presentation request for thread id " + threadId + " could not be verified.");
+        NDN_LOG_TRACE("Presentation request for presentation id " + presentationId + " could not be verified.");
       } 
     }
   }

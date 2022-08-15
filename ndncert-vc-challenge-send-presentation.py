@@ -78,8 +78,8 @@ async def main():
         ppsr_body = presentation_proof_send_request_body(connection_id, presentation_request)
         res = await request(session, "post", endpoint + "/present-proof-2.0/send-request", data=ppsr_body)
         thread_id = res["thread_id"]
-        logging.info(f"thread_id: {thread_id}")
-        send_msg("thread_id", thread_id)
+        logging.info(f"presentation_id: {thread_id}")
+        send_msg("presentation_id", thread_id)
             
     
 asyncio.run(main())

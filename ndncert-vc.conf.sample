@@ -6,9 +6,9 @@
             "requested_predicates": {}, 
             "requested_attributes": {
                 "attr1": {
-                    "name": "score", 
+                    "name": "name", 
                     "restrictions": [
-                        {"cred_def_id": "4QxzWk3ajdnEA37NdNU5Kt:3:CL:144490:default"}
+                        {"cred_def_id": "4QxzWk3ajdnEA37NdNU5Kt:3:CL:144625:default"}
                     ]
                 }
             }
