@@ -35,10 +35,10 @@ const std::string ChallengeVC::PARAMETER_KEY_DID = "did";
 const std::string ChallengeVC::PARAMETER_KEY_THREAD_ID = "thread-id";
 const std::string ChallengeVC::NEED_THREAD_ID = "need-thread-id";
 
-ChallengeVC::ChallengeVC(const std::string& configPath, const std::string& sendPresentationScriptPath, const std::string& checkPresentationScriptPath)
+ChallengeVC::ChallengeVC(const std::string& configPath, const std::string& sendPresentationScriptPath, const std::string& verifyPresentationScriptPath)
   : ChallengeModule("vc", 1, time::seconds(60)),
   m_sendPresentationScriptPath(sendPresentationScriptPath),
-  m_checkPresentationScriptPath(checkPresentationScriptPath)
+  m_verifyPresentationScriptPath(verifyPresentationScriptPath)
 {
   if (configPath.empty()) {
     m_configFile = std::string(NDNCERT_SYSCONFDIR) + "/ndncert/challenge-vc.conf";
@@ -90,7 +90,7 @@ ChallengeVC::handleChallengeRequest(const Block& params, ca::RequestState& reque
     auto secret = request.challengeState->secrets;
     if (givenThreadId == secret.get<std::string>(PARAMETER_KEY_THREAD_ID)) {
       NDN_LOG_TRACE("Correct Thread ID. Check that presentation request has been fulfilled.");
-      bool fulfilled = checkPresentationRequest(givenThreadId);
+      bool fulfilled = verifyPresentationRequest(givenThreadId);
       if (fulfilled) {
         return returnWithSuccess(request);
       } else {
@@ -175,9 +175,9 @@ std::string ChallengeVC::sendPresentationRequest(const std::string& connectionDi
   return threadId;
 }
 
-bool ChallengeVC::checkPresentationRequest(const std::string& threadId) {
+bool ChallengeVC::verifyPresentationRequest(const std::string& threadId) {
   bool verified = false;
-  std::string command = m_checkPresentationScriptPath;
+  std::string command = m_verifyPresentationScriptPath;
   command += " " + std::string("--thread_id") + " \"" + threadId + "\" "
                  + "--config_file" + " \"" + m_configFile + "\" "
                  + "--log" + " \"" + "DEBUG" + "\"";
@@ -202,10 +202,10 @@ bool ChallengeVC::checkPresentationRequest(const std::string& threadId) {
   }
   child.wait();
   if (child.exit_code() != 0) {
-    NDN_LOG_TRACE("CheckPresentationScript " + m_checkPresentationScriptPath + " fails.");
+    NDN_LOG_TRACE("VerifyPresentationScript " + m_verifyPresentationScriptPath + " fails.");
   }
   else {
-    NDN_LOG_TRACE("CheckPresentationScript " + m_checkPresentationScriptPath + " was executed succesfully with return value 0.");
+    NDN_LOG_TRACE("VerifyPresentationScript " + m_verifyPresentationScriptPath + " was executed succesfully with return value 0.");
   }
   return verified;
 }

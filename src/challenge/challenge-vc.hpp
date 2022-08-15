@@ -48,7 +48,7 @@ class ChallengeVC : public ChallengeModule
 public:
   ChallengeVC(const std::string& configPath = "", 
               const std::string& sendPresentationScriptPath = "ndncert-vc-challenge-send-presentation",
-              const std::string& checkPresentationScriptPath = "ndncert-vc-challenge-check-presentation");
+              const std::string& verifyPresentationScriptPath = "ndncert-vc-challenge-verify-presentation");
 
   // For CA
   std::tuple<ErrorCode, std::string>
@@ -80,7 +80,7 @@ NDNCERT_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   sendPresentationRequest(const std::string& connectionDid);
 
   bool
-  checkPresentationRequest(const std::string& threadId);
+  verifyPresentationRequest(const std::string& threadId);
 
 NDNCERT_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   std::string m_configFile;
@@ -89,7 +89,7 @@ NDNCERT_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
 
 private:
   std::string m_sendPresentationScriptPath;
-  std::string m_checkPresentationScriptPath;
+  std::string m_verifyPresentationScriptPath;
 };
 
 } // namespace ndncert
