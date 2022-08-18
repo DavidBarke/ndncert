@@ -47,7 +47,7 @@ class ChallengeVC : public ChallengeModule
 {
 public:
   ChallengeVC(const std::string& configPath = "", 
-              const std::string& sendPresentationScriptPath = "ndncert-vc-challenge-send-presentation",
+              const std::string& sendPresentationScriptPath = "ndncert-vc-challenge-send-presentation-request",
               const std::string& verifyPresentationScriptPath = "ndncert-vc-challenge-verify-presentation");
 
   // For CA

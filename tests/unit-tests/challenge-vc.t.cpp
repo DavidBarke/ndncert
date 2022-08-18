@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE(OnChallengeRequestWithDID)
 
     ChallengeVC challenge(
         "./tests/unit-tests/config-files/config-challenge-vc", 
-        "./tests/unit-tests/test-send-presentation.sh",
+        "./tests/unit-tests/test-send-presentation-request.sh",
         "./tests/unit-tests/test-verify-presentation.sh"
     );
     challenge.handleChallengeRequest(paramTLV, request);
@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE(OnChallengeRequestWithPresentationId)
 
     ChallengeVC challenge(
         "./tests/unit-tests/config-files/config-challenge-vc", 
-        "./tests/unit-tests/test-send-presentation.sh",
+        "./tests/unit-tests/test-send-presentation-request.sh",
         "./tests/unit-tests/test-verify-presentation.sh"
     );
     challenge.handleChallengeRequest(paramTLV, request);
