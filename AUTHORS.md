@@ -5,6 +5,7 @@ The specific contributions of individual authors can be obtained from the git hi
 If you would like to become a contributor to the official repository, please follow the recommendations in https://github.com/named-data/.github/blob/master/CONTRIBUTING.md.
 
 * Alexander Afanasyev <https://users.cs.fiu.edu/~afanasyev/>
+* David Barkemeyer <https://github.com/DavidBarke>
 * Ashlesh Gawande <https://www.linkedin.com/in/agawande>
 * Siqi Liu <https://github.com/tylerliu>
 * Eric Newberry <https://ericnewberry.com>
